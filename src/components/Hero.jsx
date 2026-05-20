@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Hero = () => {
   return (
@@ -19,9 +20,9 @@ const Hero = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row items-center gap-4">
-            <button className="w-full sm:w-auto px-8 py-3.5 bg-dhaaga-accent text-dhaaga-cards text-sm font-medium rounded-full hover:bg-dhaaga-accent/90 transition-all shadow-sm flex items-center justify-center gap-2">
+            <Link to="/onboarding" className="w-full sm:w-auto px-8 py-3.5 bg-dhaaga-accent text-dhaaga-cards text-sm font-medium rounded-full hover:bg-dhaaga-accent/90 transition-all shadow-sm flex items-center justify-center gap-2">
               Start Onboarding <ArrowRight className="w-4 h-4" />
-            </button>
+            </Link>
             <button className="w-full sm:w-auto px-8 py-3.5 bg-transparent border border-dhaaga-border text-dhaaga-primary text-sm font-medium rounded-full hover:bg-dhaaga-border/30 transition-all flex items-center justify-center">
               Explore Platform
             </button>
