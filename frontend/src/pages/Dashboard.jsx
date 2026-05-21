@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { API_URL } from '../config/api';
 
 const STATUS_STYLE_MAP = {
   'Pending Review': 'text-amber-700 bg-amber-50 border-amber-200',
@@ -24,7 +23,7 @@ const Dashboard = () => {
 
     const fetchDashboard = async () => {
       try {
-        const response = await fetch(`${API_URL}/onboarding/progress`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/onboarding/progress`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 

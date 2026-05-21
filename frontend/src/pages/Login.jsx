@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Input } from '../components/ui/Input';
-import { API_URL } from '../config/api';
 
 const validateLogin = (email, password) => {
   if (!email.trim() || !password.trim()) {
@@ -35,7 +34,7 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${API_URL}/auth/login`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim().toLowerCase(), password }),

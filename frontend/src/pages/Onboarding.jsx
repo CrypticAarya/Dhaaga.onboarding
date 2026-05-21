@@ -6,7 +6,6 @@ import ProductInformation from '../components/onboarding/ProductInformation';
 import DeliveryOperations from '../components/onboarding/DeliveryOperations';
 import ReviewSubmit from '../components/onboarding/ReviewSubmit';
 import SubmissionSuccess from '../components/onboarding/SubmissionSuccess';
-import { API_URL } from '../config/api';
 
 const ONBOARDING_STEPS = [
   { id: 1, title: 'Brand Identity', component: BrandIdentity },
@@ -105,7 +104,7 @@ const Onboarding = () => {
 
     const fetchProgress = async () => {
       try {
-        const response = await fetch(`${API_URL}/onboarding/progress`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/onboarding/progress`, {
           headers: buildRequestHeaders(token),
         });
 
@@ -149,7 +148,7 @@ const Onboarding = () => {
       submit,
     };
 
-    const response = await fetch(`${API_URL}/onboarding/progress`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/onboarding/progress`, {
       method: 'PUT',
       headers: buildRequestHeaders(token),
       body: JSON.stringify(payload),
