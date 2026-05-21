@@ -1,16 +1,11 @@
 const jwt = require('jsonwebtoken');
 
 const protect = (req, res, next) => {
-  const authHeader = req.headers.authorization;
+  const authorization = String(req.headers.authorization || '');
+  const [scheme, token] = authorization.split(' ');
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Not authorized, no token provided' });
-  }
-
-  const token = authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ message: 'Not authorized, token missing' });
+  if (scheme !== 'Bearer' || !token) {
+    return res.status(401).json({ message: 'Not authorized, token is missing or invalid' });
   }
 
   try {
@@ -19,8 +14,9 @@ const protect = (req, res, next) => {
     next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ message: 'Session expired. Please log in again.' });
+      return res.status(401).json({ message: 'Session expired. Please sign in again.' });
     }
+
     return res.status(401).json({ message: 'Not authorized, invalid token' });
   }
 };

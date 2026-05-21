@@ -1,10 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { API_URL } from '../config/api';
+
+const STATUS_STYLE_MAP = {
+  'Pending Review': 'text-amber-700 bg-amber-50 border-amber-200',
+  Approved: 'text-emerald-800 bg-emerald-50 border-emerald-200',
+  Rejected: 'text-rose-800 bg-rose-50 border-rose-200',
+  'Needs More Information': 'text-orange-800 bg-orange-50 border-orange-200',
+};
 
 const Dashboard = () => {
   const [brandData, setBrandData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
   const token = localStorage.getItem('dhaaga_token');
 
@@ -16,21 +24,39 @@ const Dashboard = () => {
 
     const fetchDashboard = async () => {
       try {
-        const res = await fetch(`${API_URL}/onboarding/progress`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+        const response = await fetch(`${API_URL}/onboarding/progress`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        if (res.ok) {
-          const data = await res.json();
-          setBrandData(data);
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            localStorage.removeItem('dhaaga_token');
+            navigate('/login');
+            return;
+          }
+
+          const payload = await response.json();
+          throw new Error(payload.message || 'Unable to load dashboard data');
         }
-      } catch (error) {
-        console.error('Error fetching dashboard:', error);
+
+        const data = await response.json();
+        setBrandData(data);
+      } catch (fetchError) {
+        console.error('Error fetching dashboard:', fetchError);
+        setError('We could not load your dashboard right now. Please refresh the page.');
       } finally {
         setLoading(false);
       }
     };
+
     fetchDashboard();
-  }, [token, navigate]);
+  }, [navigate, token]);
+
+  const getStatusStyles = (status) => STATUS_STYLE_MAP[status] || 'text-dhaaga-muted bg-dhaaga-bg border-dhaaga-border';
+
+  const getFirstName = (fullName = '') => {
+    return fullName.trim().split(' ')[0] || 'Founder';
+  };
 
   if (loading) {
     return (
@@ -40,24 +66,22 @@ const Dashboard = () => {
     );
   }
 
-  if (!brandData) {
-    return null;
+  if (error || !brandData) {
+    return (
+      <div className="min-h-screen bg-dhaaga-bg flex items-center justify-center px-6">
+        <div className="max-w-lg bg-dhaaga-cards rounded-3xl border border-dhaaga-border p-10 text-center shadow-sm">
+          <h2 className="font-heading text-3xl text-dhaaga-primary mb-4">Dashboard Unavailable</h2>
+          <p className="text-dhaaga-muted mb-6">{error || 'Your application status could not be retrieved at this time.'}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-8 py-3 rounded-full bg-dhaaga-accent text-dhaaga-cards font-medium hover:bg-dhaaga-accent/90 transition"
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+    );
   }
-
-  const getStatusStyles = (status) => {
-    switch (status) {
-      case 'Pending Review':
-        return 'text-amber-700 bg-amber-50 border-amber-200';
-      case 'Approved':
-        return 'text-emerald-800 bg-emerald-50 border-emerald-200';
-      case 'Rejected':
-        return 'text-rose-800 bg-rose-50 border-rose-200';
-      case 'Needs More Information':
-        return 'text-orange-800 bg-orange-50 border-orange-200';
-      default:
-        return 'text-dhaaga-muted bg-dhaaga-bg border-dhaaga-border';
-    }
-  };
 
   return (
     <div className="min-h-screen bg-dhaaga-bg">
@@ -71,26 +95,25 @@ const Dashboard = () => {
           </Link>
           <div className="flex items-center gap-6">
             <span className="text-sm font-medium text-dhaaga-primary">{brandData.onboardingData.brandName || 'Brand'}</span>
-            <div className="w-10 h-10 rounded-full bg-dhaaga-cards border border-dhaaga-border"></div>
+            <div className="w-10 h-10 rounded-full bg-dhaaga-cards border border-dhaaga-border" />
           </div>
         </div>
       </nav>
 
       <main className="max-w-4xl mx-auto px-6 py-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <header className="mb-12">
-          <h1 className="font-heading text-5xl text-dhaaga-primary mb-4">Welcome back, {brandData.onboardingData.founderName?.split(' ')[0] || 'Founder'}</h1>
+          <h1 className="font-heading text-5xl text-dhaaga-primary mb-4">Welcome back, {getFirstName(brandData.onboardingData.founderName)}</h1>
           <p className="text-xl text-dhaaga-muted font-heading italic">Here is the current status of your partnership application.</p>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-          {/* Application Status Card */}
           <div className="md:col-span-2 bg-dhaaga-cards rounded-2xl border border-dhaaga-border p-8 md:p-10 shadow-sm relative overflow-hidden">
             <h2 className="text-sm font-medium uppercase tracking-widest text-dhaaga-muted mb-6">Application Status</h2>
-            
+
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
               <div>
                 <span className={`inline-flex items-center px-4 py-1.5 rounded-full text-sm font-medium border mb-4 ${getStatusStyles(brandData.applicationStatus)}`}>
-                  <span className="w-2 h-2 rounded-full bg-current mr-2 opacity-70"></span>
+                  <span className="w-2 h-2 rounded-full bg-current mr-2 opacity-70" />
                   {brandData.applicationStatus}
                 </span>
                 <p className="text-dhaaga-primary font-medium text-lg max-w-sm">
@@ -105,7 +128,6 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Profile Completion Card */}
           <div className="bg-dhaaga-cards rounded-2xl border border-dhaaga-border p-8 shadow-sm flex flex-col justify-between">
             <div>
               <h2 className="text-sm font-medium uppercase tracking-widest text-dhaaga-muted mb-2">Profile Completion</h2>
@@ -113,24 +135,23 @@ const Dashboard = () => {
                 <span className="font-heading text-5xl text-dhaaga-accent">{brandData.profileCompletion}%</span>
               </div>
             </div>
-            
+
             <div>
               <div className="h-1.5 w-full bg-dhaaga-bg rounded-full overflow-hidden mb-3">
-                <div 
-                  className="h-full bg-dhaaga-accent rounded-full transition-all duration-1000 ease-out" 
+                <div
+                  className="h-full bg-dhaaga-accent rounded-full transition-all duration-1000 ease-out"
                   style={{ width: `${brandData.profileCompletion}%` }}
-                ></div>
+                />
               </div>
               <p className="text-xs text-dhaaga-muted">
-                {brandData.profileCompletion < 100 
-                  ? "Complete your profile to increase visibility."
-                  : "Your brand profile is complete."}
+                {brandData.profileCompletion < 100
+                  ? 'Complete your profile to increase visibility.'
+                  : 'Your brand profile is complete.'}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Next Steps / Summary */}
         <div className="border-t border-dhaaga-border pt-12">
           <h3 className="font-heading text-2xl text-dhaaga-primary mb-8">What happens next?</h3>
           <div className="space-y-6">
@@ -143,7 +164,7 @@ const Dashboard = () => {
             </div>
             <div className="flex gap-4">
               <div className="w-8 h-8 rounded-full bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
-                <span className="w-2 h-2 rounded-full bg-current"></span>
+                <span className="w-2 h-2 rounded-full bg-current" />
               </div>
               <div>
                 <h4 className="text-lg font-medium text-dhaaga-primary mb-1">Curation Review</h4>
@@ -159,7 +180,6 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-
       </main>
     </div>
   );

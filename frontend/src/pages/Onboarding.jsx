@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import BrandIdentity from '../components/onboarding/BrandIdentity';
 import BusinessDetails from '../components/onboarding/BusinessDetails';
@@ -8,7 +8,7 @@ import ReviewSubmit from '../components/onboarding/ReviewSubmit';
 import SubmissionSuccess from '../components/onboarding/SubmissionSuccess';
 import { API_URL } from '../config/api';
 
-const steps = [
+const ONBOARDING_STEPS = [
   { id: 1, title: 'Brand Identity', component: BrandIdentity },
   { id: 2, title: 'Business Details', component: BusinessDetails },
   { id: 3, title: 'Product Showcase', component: ProductInformation },
@@ -16,38 +16,86 @@ const steps = [
   { id: 5, title: 'Review & Submit', component: ReviewSubmit },
 ];
 
+const INITIAL_FORM_DATA = {
+  brandName: '',
+  founderName: '',
+  brandCategory: '',
+  brandStory: '',
+  brandLogo: null,
+  gstNumber: '',
+  businessType: '',
+  mfgScale: '',
+  city: '',
+  state: '',
+  address: '',
+  subCategories: '',
+  pricePoint: '',
+  inventorySize: '',
+  sampleProducts: '',
+  productImages: null,
+  deliveryZones: '',
+  sameday: 'no',
+  packaging: '',
+  returnPolicy: '',
+};
+
+const VALIDATION_RULES = {
+  1: [
+    { field: 'brandName', message: 'Brand name is required' },
+    { field: 'founderName', message: 'Founder name is required' },
+    { field: 'brandCategory', message: 'Please select a brand category' },
+  ],
+  2: [
+    { field: 'gstNumber', message: 'GST number is required', exactLength: 15 },
+    { field: 'businessType', message: 'Please select a business type' },
+  ],
+  3: [
+    { field: 'pricePoint', message: 'Please select an average price point' },
+  ],
+  4: [
+    { field: 'deliveryZones', message: 'Please select delivery zones' },
+  ],
+};
+
+const hasValue = (value) => {
+  return value !== null && value !== undefined && String(value).trim() !== '';
+};
+
+const buildRequestHeaders = (token) => ({
+  'Content-Type': 'application/json',
+  Authorization: `Bearer ${token}`,
+});
+
+const validateStepFields = (step, data) => {
+  const rules = VALIDATION_RULES[step] || [];
+  const result = {};
+
+  rules.forEach((rule) => {
+    const value = data[rule.field];
+
+    if (!hasValue(value)) {
+      result[rule.field] = rule.message;
+      return;
+    }
+
+    if (rule.exactLength && String(value).trim().length !== rule.exactLength) {
+      result[rule.field] = `This field must be exactly ${rule.exactLength} characters long.`;
+    }
+  });
+
+  return result;
+};
+
 const Onboarding = () => {
   const [currentStep, setCurrentStep] = useState(1);
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [formData, setFormData] = useState(INITIAL_FORM_DATA);
+  const [errors, setErrors] = useState({});
+  const [saveError, setSaveError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState('');
-  const [errors, setErrors] = useState({});
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const navigate = useNavigate();
   const token = localStorage.getItem('dhaaga_token');
-
-  const [formData, setFormData] = useState({
-    brandName: '',
-    founderName: '',
-    brandCategory: '',
-    brandStory: '',
-    brandLogo: null,
-    gstNumber: '',
-    businessType: '',
-    mfgScale: '',
-    city: '',
-    state: '',
-    address: '',
-    subCategories: '',
-    pricePoint: '',
-    inventorySize: '',
-    sampleProducts: '',
-    productImages: null,
-    deliveryZones: '',
-    sameday: 'no',
-    packaging: '',
-    returnPolicy: '',
-  });
 
   useEffect(() => {
     if (!token) {
@@ -57,112 +105,98 @@ const Onboarding = () => {
 
     const fetchProgress = async () => {
       try {
-        const res = await fetch(`${API_URL}/onboarding/progress`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+        const response = await fetch(`${API_URL}/onboarding/progress`, {
+          headers: buildRequestHeaders(token),
         });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.onboardingData) {
-            setFormData(prev => ({ ...prev, ...data.onboardingData }));
-          }
-          if (data.onboardingStep) setCurrentStep(data.onboardingStep);
-          if (data.applicationStatus && data.applicationStatus !== 'Draft') setIsSubmitted(true);
-        } else if (res.status === 401) {
-          // Token expired or invalid
+
+        if (response.status === 401) {
           localStorage.removeItem('dhaaga_token');
           navigate('/login');
+          return;
         }
+
+        if (!response.ok) {
+          const payload = await response.json();
+          throw new Error(payload.message || 'Unable to load saved application');
+        }
+
+        const savedProgress = await response.json();
+        setFormData((current) => ({ ...current, ...savedProgress.onboardingData }));
+        setCurrentStep(savedProgress.onboardingStep || 1);
+        setIsSubmitted(savedProgress.applicationStatus && savedProgress.applicationStatus !== 'Draft');
       } catch (error) {
-        console.error('Error fetching progress:', error);
+        console.error('Error loading onboarding data:', error);
+        setSaveError('Unable to load your application at the moment. Please try again in a minute.');
       } finally {
         setIsLoading(false);
       }
     };
+
     fetchProgress();
-  }, [token, navigate]);
+  }, [navigate, token]);
 
   const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((current) => ({ ...current, [field]: value }));
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: null }));
+      setErrors((current) => ({ ...current, [field]: null }));
     }
-  };
-
-  const validateStep = (step) => {
-    const newErrors = {};
-    if (step === 1) {
-      if (!formData.brandName.trim()) newErrors.brandName = 'Brand Name is required';
-      if (!formData.founderName.trim()) newErrors.founderName = 'Founder Name is required';
-      if (!formData.brandCategory) newErrors.brandCategory = 'Please select a category';
-    }
-    if (step === 2) {
-      if (!formData.gstNumber.trim()) newErrors.gstNumber = 'GST Number is required';
-      else if (formData.gstNumber.length !== 15) newErrors.gstNumber = 'GST Number must be 15 characters';
-      if (!formData.businessType) newErrors.businessType = 'Please select a business type';
-    }
-    if (step === 3) {
-      if (!formData.pricePoint) newErrors.pricePoint = 'Please select an average price point';
-    }
-    if (step === 4) {
-      if (!formData.deliveryZones) newErrors.deliveryZones = 'Please select delivery zones';
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
   const saveProgress = async (step, submit = false) => {
-    try {
-      const res = await fetch(`${API_URL}/onboarding/progress`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          step: submit ? step : step + 1,
-          data: formData,
-          submit,
-        }),
-      });
+    const payload = {
+      step: submit ? step : step + 1,
+      data: formData,
+      submit,
+    };
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || 'Failed to save progress');
-      }
-      return true;
-    } catch (error) {
-      console.error('Failed to save progress:', error);
-      setSaveError('Could not save your progress. Please check your connection and try again.');
-      return false;
+    const response = await fetch(`${API_URL}/onboarding/progress`, {
+      method: 'PUT',
+      headers: buildRequestHeaders(token),
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const payload = await response.json();
+      throw new Error(payload.message || 'Failed to save progress');
     }
+
+    return response.json();
   };
 
   const handleNext = async () => {
-    if (!validateStep(currentStep)) return;
+    const validationErrors = validateStepFields(currentStep, formData);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
     setSaveError('');
     setIsSaving(true);
 
-    if (currentStep < steps.length) {
-      const saved = await saveProgress(currentStep);
-      setIsSaving(false);
-      if (!saved) return; // Halt on failure
-      setCurrentStep(c => c + 1);
+    try {
+      const shouldSubmit = currentStep === ONBOARDING_STEPS.length;
+      const savedData = await saveProgress(currentStep, shouldSubmit);
+
+      if (shouldSubmit) {
+        setIsSubmitted(true);
+        return;
+      }
+
+      setFormData((current) => ({ ...current, ...savedData.onboardingData }));
+      setCurrentStep((current) => Math.min(current + 1, ONBOARDING_STEPS.length));
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else if (currentStep === steps.length) {
-      const saved = await saveProgress(currentStep, true);
+    } catch (error) {
+      console.error('Error saving progress:', error);
+      setSaveError('Unable to save your step right now. Please try again shortly.');
+    } finally {
       setIsSaving(false);
-      if (!saved) return;
-      setIsSubmitted(true);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const handlePrev = () => {
-    if (currentStep > 1) {
-      setSaveError('');
-      setCurrentStep(c => c - 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    setSaveError('');
+    setCurrentStep((current) => Math.max(current - 1, 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   if (isLoading) {
@@ -193,11 +227,10 @@ const Onboarding = () => {
     );
   }
 
-  const CurrentStepComponent = steps[currentStep - 1].component;
+  const CurrentStepComponent = ONBOARDING_STEPS[currentStep - 1].component;
 
   return (
     <div className="min-h-screen bg-dhaaga-bg flex flex-col md:flex-row">
-      {/* Sidebar */}
       <aside className="w-full md:w-1/3 lg:w-1/4 border-b md:border-b-0 md:border-r border-dhaaga-border p-8 md:p-12 flex flex-col justify-between shrink-0 bg-dhaaga-bg z-10 sticky top-0 md:h-screen overflow-y-auto">
         <div>
           <Link to="/" className="inline-flex items-center gap-2 mb-16 hover:opacity-80 transition-opacity">
@@ -211,9 +244,10 @@ const Onboarding = () => {
             <p className="text-xs font-medium uppercase tracking-widest text-dhaaga-muted mb-8">Application Progress</p>
             <nav aria-label="Progress">
               <ol className="space-y-6">
-                {steps.map((step) => {
+                {ONBOARDING_STEPS.map((step) => {
                   const isActive = step.id === currentStep;
                   const isCompleted = step.id < currentStep;
+
                   return (
                     <li key={step.id} className="relative">
                       <div className="flex items-start">
@@ -237,7 +271,7 @@ const Onboarding = () => {
                           </span>
                         </div>
                       </div>
-                      {step.id !== steps.length && (
+                      {step.id !== ONBOARDING_STEPS.length && (
                         <div className="absolute top-6 left-[4px] -bottom-4 w-px bg-dhaaga-border" />
                       )}
                     </li>
@@ -247,10 +281,9 @@ const Onboarding = () => {
             </nav>
           </div>
 
-          {/* Mobile progress indicator */}
           <div className="md:hidden">
-            <p className="text-xs uppercase tracking-widest text-dhaaga-muted mb-2">Step {currentStep} of {steps.length}</p>
-            <h2 className="font-heading text-2xl text-dhaaga-primary">{steps[currentStep - 1].title}</h2>
+            <p className="text-xs uppercase tracking-widest text-dhaaga-muted mb-2">Step {currentStep} of {ONBOARDING_STEPS.length}</p>
+            <h2 className="font-heading text-2xl text-dhaaga-primary">{ONBOARDING_STEPS[currentStep - 1].title}</h2>
           </div>
         </div>
 
@@ -262,7 +295,6 @@ const Onboarding = () => {
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-full md:h-screen overflow-hidden relative">
         <div className="flex-1 overflow-y-auto px-6 py-12 md:p-20 lg:px-32 xl:px-48 relative">
           <div className="max-w-3xl mx-auto w-full pb-32">
@@ -275,7 +307,6 @@ const Onboarding = () => {
           </div>
         </div>
 
-        {/* Sticky Footer Navigation */}
         <div className="absolute bottom-0 left-0 right-0 p-6 md:px-20 lg:px-32 xl:px-48 bg-gradient-to-t from-dhaaga-bg via-dhaaga-bg to-transparent">
           {saveError && (
             <p className="text-rose-700 text-sm text-center mb-3 font-medium">{saveError}</p>
@@ -298,7 +329,7 @@ const Onboarding = () => {
               disabled={isSaving}
               className="px-8 py-3.5 bg-dhaaga-primary text-dhaaga-cards text-sm font-medium rounded-full hover:bg-dhaaga-primary/90 transition-all shadow-md hover:shadow-lg ml-auto disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {isSaving ? 'Saving...' : currentStep === steps.length ? 'Submit Application' : 'Continue'}
+              {isSaving ? 'Saving...' : currentStep === ONBOARDING_STEPS.length ? 'Submit Application' : 'Continue'}
             </button>
           </div>
         </div>

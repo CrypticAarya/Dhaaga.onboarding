@@ -1,19 +1,41 @@
 const Brand = require('../models/Brand');
 
-const calculateCompletion = (data) => {
-  if (!data) return 0;
-  const expectedFields = [
-    'brandName', 'founderName', 'brandCategory', 'brandStory', 
-    'gstNumber', 'businessType', 'mfgScale', 'city', 'state', 'address',
-    'subCategories', 'pricePoint', 'inventorySize', 'sampleProducts',
-    'deliveryZones', 'sameday', 'packaging', 'returnPolicy'
-  ];
-  let filled = 0;
-  expectedFields.forEach(field => {
-    if (data[field] && data[field].trim() !== '') filled++;
-  });
-  return Math.round((filled / expectedFields.length) * 100);
+const requiredFields = [
+  'brandName',
+  'founderName',
+  'brandCategory',
+  'brandStory',
+  'gstNumber',
+  'businessType',
+  'mfgScale',
+  'city',
+  'state',
+  'address',
+  'subCategories',
+  'pricePoint',
+  'inventorySize',
+  'sampleProducts',
+  'deliveryZones',
+  'sameday',
+  'packaging',
+  'returnPolicy',
+];
+
+const calculateCompletion = (data = {}) => {
+  const completedFields = requiredFields.reduce((count, field) => {
+    const value = data[field];
+    return count + (typeof value === 'string' && value.trim() !== '' ? 1 : 0);
+  }, 0);
+
+  return Math.round((completedFields / requiredFields.length) * 100);
 };
+
+const buildSavedData = (brand) => ({
+  applicationStatus: brand.applicationStatus,
+  profileCompletion: brand.profileCompletion,
+  onboardingStep: brand.onboardingStep,
+  onboardingData: brand.onboardingData || {},
+});
 
 // @desc    Get onboarding progress
 // @route   GET /api/onboarding/progress
@@ -21,20 +43,35 @@ const calculateCompletion = (data) => {
 const getProgress = async (req, res) => {
   try {
     const brand = await Brand.findById(req.brandId).select('-password');
-    
     if (!brand) {
       return res.status(404).json({ message: 'Brand not found' });
     }
-    
-    res.json({
-      applicationStatus: brand.applicationStatus,
-      profileCompletion: brand.profileCompletion,
-      onboardingStep: brand.onboardingStep,
-      onboardingData: brand.onboardingData
-    });
+
+    return res.json(buildSavedData(brand));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error fetching progress:', error);
+    return res.status(500).json({ message: 'Unable to retrieve onboarding progress' });
   }
+};
+
+const normalizeOnboardingData = (existingData, incomingData) => {
+  const currentData = existingData && existingData.toObject ? existingData.toObject() : existingData || {};
+  return {
+    ...currentData,
+    ...incomingData,
+  };
+};
+
+const validateSavePayload = (payload) => {
+  if (!payload || typeof payload !== 'object') {
+    return 'Payload must be a valid object';
+  }
+
+  if (!payload.data || typeof payload.data !== 'object') {
+    return 'Onboarding data is required';
+  }
+
+  return null;
 };
 
 // @desc    Save onboarding progress
@@ -43,44 +80,37 @@ const getProgress = async (req, res) => {
 const saveProgress = async (req, res) => {
   try {
     const { step, data, submit } = req.body;
+    const validationError = validateSavePayload(req.body);
+
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
+    }
 
     const brand = await Brand.findById(req.brandId);
-    
     if (!brand) {
       return res.status(404).json({ message: 'Brand not found' });
     }
 
-    // Update step if passed
-    if (step) {
-      brand.onboardingStep = step;
+    if (typeof step === 'number' && step > 0) {
+      brand.onboardingStep = Math.min(step, requiredFields.length + 1);
     }
 
-    // Merge new data with existing data
-    if (data) {
-      brand.onboardingData = {
-        ...brand.onboardingData.toObject(),
-        ...data
-      };
-      // Recalculate completion
-      brand.profileCompletion = calculateCompletion(brand.onboardingData);
-    }
+    brand.onboardingData = normalizeOnboardingData(brand.onboardingData, data);
+    brand.profileCompletion = calculateCompletion(brand.onboardingData);
 
-    // Handle submission
-    if (submit) {
+    if (submit === true) {
       brand.applicationStatus = 'Pending Review';
     }
 
     const updatedBrand = await brand.save();
 
-    res.json({
+    return res.json({
       message: submit ? 'Application submitted successfully' : 'Progress saved successfully',
-      applicationStatus: updatedBrand.applicationStatus,
-      profileCompletion: updatedBrand.profileCompletion,
-      onboardingStep: updatedBrand.onboardingStep,
-      onboardingData: updatedBrand.onboardingData
+      ...buildSavedData(updatedBrand),
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error saving progress:', error);
+    return res.status(500).json({ message: 'Unable to save onboarding progress' });
   }
 };
 
