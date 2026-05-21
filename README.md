@@ -1,16 +1,32 @@
-# React + Vite
+# Dhaaga Onboarding
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React + Vite frontend and Express backend for the Dhaaga onboarding application.
 
-Currently, two official plugins are available:
+## Quick start
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-## React Compiler
+### Backend
+```bash
+cd backend
+npm install
+npm run dev
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Production
+- Frontend uses `VITE_API_URL` to connect to the backend.
+- Set `VITE_API_URL=https://dhaaga-onboarding.onrender.com` for production.
 
-## Expanding the ESLint configuration
+## Notes
+- The frontend sources are under `frontend/`.
+- The backend sources are under `backend/`.
+- CORS is configured in `backend/server.js` to allow the deployed Vercel frontend origin.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Environment files
+- `frontend/.env` is ignored by git and should contain the production API URL.
+- `frontend/.env.example` documents the expected variable.
