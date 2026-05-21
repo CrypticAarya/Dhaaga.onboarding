@@ -1,18 +1,48 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { API_URL } from '../config/api';
 
 const Dashboard = () => {
-  // In a real app, this would be fetched from the backend API
-  // Using dummy data simulating the new backend model response
-  const brandData = {
-    applicationStatus: 'Pending Review',
-    profileCompletion: 85,
-    onboardingData: {
-      brandName: 'Ananda Skincare',
-      founderName: 'Aria Sharma',
-      gstNumber: '27AABCU9603R1ZX',
+  const [brandData, setBrandData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const token = localStorage.getItem('dhaaga_token');
+
+  useEffect(() => {
+    if (!token) {
+      navigate('/login');
+      return;
     }
-  };
+
+    const fetchDashboard = async () => {
+      try {
+        const res = await fetch(`${API_URL}/onboarding/progress`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setBrandData(data);
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboard();
+  }, [token, navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-dhaaga-bg flex items-center justify-center">
+        <div className="text-dhaaga-muted">Loading dashboard...</div>
+      </div>
+    );
+  }
+
+  if (!brandData) {
+    return null;
+  }
 
   const getStatusStyles = (status) => {
     switch (status) {

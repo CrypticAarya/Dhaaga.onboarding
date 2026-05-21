@@ -1,7 +1,15 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const Navbar = () => {
+  const navigate = useNavigate();
+  const token = localStorage.getItem('dhaaga_token');
+
+  const handleLogout = () => {
+    localStorage.removeItem('dhaaga_token');
+    navigate('/login');
+  };
+
   return (
     <nav className="border-b border-dhaaga-border sticky top-0 bg-dhaaga-bg/80 backdrop-blur-md z-50">
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -14,12 +22,25 @@ const Navbar = () => {
         </Link>
         
         <div className="flex items-center gap-8">
-          <Link to="/dashboard" className="text-sm font-medium text-dhaaga-muted hover:text-dhaaga-primary transition-colors">
-            Dashboard
-          </Link>
-          <Link to="/onboarding" className="px-6 py-2.5 bg-dhaaga-primary text-dhaaga-cards text-sm font-medium rounded-full hover:bg-dhaaga-primary/90 transition-all shadow-sm">
-            Start Onboarding
-          </Link>
+          {token ? (
+            <>
+              <Link to="/dashboard" className="text-sm font-medium text-dhaaga-muted hover:text-dhaaga-primary transition-colors">
+                Dashboard
+              </Link>
+              <button onClick={handleLogout} className="text-sm font-medium text-rose-800 hover:text-rose-900 transition-colors">
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/login" className="text-sm font-medium text-dhaaga-muted hover:text-dhaaga-primary transition-colors">
+                Login
+              </Link>
+              <Link to="/register" className="px-6 py-2.5 bg-dhaaga-primary text-dhaaga-cards text-sm font-medium rounded-full hover:bg-dhaaga-primary/90 transition-all shadow-sm">
+                Apply as Brand
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </nav>
